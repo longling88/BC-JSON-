@@ -1,0 +1,64 @@
+{
+    "titles": [
+        {
+            "text": "百度",
+            "size": "60",
+            "weight": "bold",
+            "color": "#cbcf07",
+            "stroke_color": "#16a4c0",
+            "stroke_width": "3"
+        },
+        {
+            "text": "官方网址：baidu.com",
+            "size": "32",
+            "weight": "bold",
+            "color": "#ab8a1c",
+            "stroke_color": "#000000",
+            "stroke_width": "3"
+        }
+    ],
+    "subs": [
+        {
+            "text": "百度",
+            "size": "14",
+            "weight": "normal",
+            "color": "#f1e909",
+            "stroke_color": "#000000",
+            "stroke_width": "0"
+        }
+    ],
+    "links": [
+        {
+            "name": "中国路线",
+            "url": "https:\/\/baidu.com"
+        },
+        {
+            "name": "国际路线",
+            "url": "https:\/\/qq.com"
+        }
+    ],
+    "carousel": [],
+    "border_width": "3",
+    "border_color": "#fbe704",
+    "border_radius": "20",
+    "card_opacity": "0.5",
+    "kefu": "https:\/\/qq.com",
+    "kefu_img": "img\/kefu_img_1768901974_3bdfd7.png",
+    "bg_pc": "img\/bg_pc_1768861812_b5dd3.mp4",
+    "bg_mobile": "img\/bg_mobile_1768863007.mp4",
+    "logo": "img\/logo_1768867216.png",
+    "btnText": "立即进入",
+    "routeTitle": "极速线路选择",
+    "copyright_text": "www.baidu",
+    "copyright_size": "24",
+    "copyright_color": "#fff",
+    "kefu_text": "联系客服",
+    "routeTitleSize": "18",
+    "banners": [
+        "img\/carousel_1768903517_ecae91.png"
+    ],
+    "display_order": "carousel_first",
+    "system_info": "",
+    "system_info_size": "12",
+    "system_info_color": "#666666"
+}

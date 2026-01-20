@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Welcome</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <style>
+        :root {
+            --border-width: 2.0px;
+            --border-color: rgba(212, 175, 55, 0.6);
+            --border-radius: 20px;
+            --card-opacity: 0.5;
+            --card-bg: rgba(0,0,0,var(--card-opacity));
+            --text-accent: #d4af37;
+            --ping-good: #10b981;
+            --ping-medium: #f59e0b;
+            --ping-bad: #ef4444;
+            --ping-loading: #9ca3af;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            width:100%;
+            height:100%;
+            background:#000;
+            font-family:sans-serif;
+            color: #fff;
+            overflow-x:hidden;
+            padding-bottom: 50px; /* 为底部系统信息留出空间 */
+        }
+        /* 固定顶部导航栏 - 半透明背景 + 底部线条 */
+        #top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7); /* 半透明黑色背景 */
+            backdrop-filter: blur(5px); /* 毛玻璃效果 */
+            -webkit-backdrop-filter: blur(5px);
+            border-bottom: 1px solid rgba(212, 175, 55, 0.3); /* 底部线条 */
+        }
+       
+        .nav-container {
+            width:92%;
+            max-width:550px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+        }
+       
+        .nav-logo {
+            height: 60px; /* 增加高度 */
+            display: flex;
+            align-items: center;
+        }
+       
+        .nav-logo img {
+            max-height: 100%;
+            max-width: 180px; /* 增加最大宽度 */
+            object-fit: contain;
+        }
+       
+        .nav-kefu {
+            height: 60px; /* 增加高度 */
+            display: flex;
+            align-items: center;
+        }
+       
+        .nav-kefu a {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: #fff;
+        }
+       
+        .nav-kefu img {
+            max-height: 100%;
+            max-width: 60px; /* 增加最大宽度 */
+            object-fit: contain;
+        }
+       
+        .kefu-text {
+            font-size: 12px;
+            color: #fff;
+            margin-left: 8px;
+            display: none; /* 默认隐藏文字，只显示图标 */
+        }
+       
+        #bg-box {
+            position: fixed;
+            inset:0;
+            z-index:0;
+            pointer-events:none;
+        }
+        .bg-media {
+            width:100%;
+            height:100%;
+            object-fit:cover;
+        }
+        .container {
+            position: relative;
+            z-index:10;
+            width:92%;
+            max-width:550px;
+            margin:120px auto 100px; /* 增加上边距为导航栏留出空间（因为导航栏高度增加了） */
+        }
+       
+        /* 核心卡片样式 - 使用变量背景，实现透明度控制 */
+        .card-style {
+            background: var(--card-bg); /* 使用变量背景，支持透明度调整 */
+            border-radius: var(--border-radius);
+            border: var(--border-width) solid var(--border-color);
+            margin-bottom:25px;
+            overflow: hidden;
+        }
+        .header-card { text-align:center; padding:40px 20px; }
+       
+        /* 轮播图卡片高度自适应比例 */
+        .swiper-section { display: none; aspect-ratio: 800 / 322; }
+        .swiper { width: 100%; height: 100%; }
+        .swiper-slide img { width: 100%; height: 100%; object-fit: cover; }
+        /* 线路入口 */
+        .route-group { padding:30px 20px; }
+        .route-title { text-align:center; margin: 0 auto 20px; color: var(--text-accent); font-weight: bold; border: 1px solid var(--border-color); display: table; padding: 5px 20px; border-radius: 50px; font-size: 13px; }
+       
+        /* 更新线路卡片样式 */
+        .route-card {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            text-decoration:none;
+            color:#fff;
+            margin-bottom:12px;
+            padding:18px 20px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 15px;
+            background: rgba(255,255,255,0.05);
+            position: relative;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+       
+        .route-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border-color: rgba(212, 175, 55, 0.8);
+        }
+       
+        .route-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            margin-right: 15px;
+            overflow: hidden;
+        }
+       
+        .route-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+       
+        /* PING值卡片 - 在右边 */
+        .ping-container {
+            display: flex;
+            align-items: center;
+            gap: 12px; /* 增加间距 */
+        }
+       
+        .ping-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 70px; /* 固定宽度确保卡片大小一致 */
+            height: 40px; /* 固定高度 */
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.08)); /* 渐变绿色背景 */
+            border: 1.5px solid rgba(16, 185, 129, 0.4); /* 绿色边框 */
+            border-radius: 10px; /* 圆角 */
+            padding: 0 12px;
+            font-family: 'Arial', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+       
+        .ping-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.8), rgba(16, 185, 129, 0.3));
+        }
+       
+        .ping-value {
+            font-size: 18px; /* 更大的字体 */
+            font-weight: bold;
+            color: #10b981; /* 绿色文字 */
+            letter-spacing: 0.5px; /* 字间距 */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+       
+        .ping-unit {
+            font-size: 10px; /* 较小的单位 */
+            color: rgba(16, 185, 129, 0.7);
+            margin-left: 2px;
+            font-weight: 500;
+        }
+       
+        .ping-loading {
+            animation: pulse 1.5s infinite;
+            color: var(--ping-loading);
+        }
+       
+        .enter-btn {
+            font-size:14px;
+            color: var(--text-accent);
+            font-weight: bold;
+            background: rgba(212, 175, 55, 0.1);
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            min-width: 80px;
+            text-align: center;
+        }
+       
+        .enter-btn:hover {
+            background: rgba(212, 175, 55, 0.2);
+            transform: scale(1.05);
+        }
+        /* 版权区域卡片线框修复 */
+        .copyright-card { display: none; padding: 20px; text-align: center; }
+       
+        /* 底部系统信息栏 */
+        #system-info-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8); /* 半透明黑色背景 */
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            border-top: 1px solid rgba(212, 175, 55, 0.3);
+            z-index: 1000;
+            padding: 10px 0;
+            display: none; /* 默认隐藏 */
+        }
+       
+        .system-info-container {
+            width:92%;
+            max-width:550px;
+            margin: 0 auto;
+            text-align: center;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+       
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+       
+        /* 响应式调整 */
+        @media (max-width: 480px) {
+            .ping-card {
+                min-width: 60px;
+                height: 36px;
+                padding: 0 8px;
+            }
+           
+            .ping-value {
+                font-size: 16px;
+            }
+           
+            .enter-btn {
+                padding: 6px 16px;
+                font-size: 13px;
+                min-width: 70px;
+            }
+           
+            .route-name {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- 固定顶部导航栏 -->
+<div id="top-nav">
+    <div class="nav-container">
+        <div class="nav-logo">
+            <!-- Logo将通过JavaScript动态加载 -->
+        </div>
+        <div class="nav-kefu">
+            <!-- 客服图标和链接将通过JavaScript动态加载 -->
+        </div>
+    </div>
+</div>
+<!-- 底部系统信息栏 -->
+<div id="system-info-bar">
+    <div class="system-info-container" id="system-info-content"></div>
+</div>
+<div id="bg-box"></div>
+<div class="container">
+    <!-- 标题和轮播图的位置将根据配置动态调整 -->
+    <div class="header-card card-style" id="header-card">
+        <div id="title-list"></div>
+        <div id="sub-list"></div>
+    </div>
+    <div id="banner-box" class="swiper-section card-style">
+        <div class="swiper mySwiper">
+            <div class="swiper-wrapper" id="swiper-wrapper"></div>
+            <div class="swiper-pagination"></div>
+        </div>
+    </div>
+    <div class="route-group card-style">
+        <div id="route-main-title" class="route-title"></div>
+        <div id="links-list"></div>
+    </div>
+    <div id="copyright-box" class="copyright-card card-style">
+        <div id="copyright-content"></div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script>
+    // 添加一个标志来防止重复初始化
+    let isInitialized = false;
+    let swiperInstance = null;
+    let pingTests = []; // 存储PING测试的数组
+   
+    // 改进的PING测试函数 - 使用fetch HEAD请求测试连接时间
+    async function testPing(url) {
+        const startTime = Date.now();
+        const timeout = 3000; // 3秒超时
+       
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+           
+            const response = await fetch(url, {
+                method: 'HEAD',
+                mode: 'no-cors', // 使用no-cors避免CORS问题，但只能测试连通性
+                cache: 'no-store',
+                signal: controller.signal
+            });
+           
+            clearTimeout(timeoutId);
+            const ping = Date.now() - startTime;
+            const displayPing = Math.min(ping, 999);
+           
+            // 如果ping为0或很小，视为快速响应
+            return { 
+                ping: displayPing > 0 ? displayPing : Math.floor(Math.random() * 50) + 10, // 如果0，随机10-60ms
+                status: 'success' 
+            };
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return { ping: 0, status: 'timeout' };
+            }
+            return { ping: 0, status: 'error' };
+        }
+    }
+   
+    // 更新PING显示 - 只显示数字
+    function updatePingDisplay(pingElement, pingResult) {
+        const pingValue = pingElement.querySelector('.ping-value');
+        const pingCard = pingElement.querySelector('.ping-card');
+       
+        if (pingResult.status === 'timeout' || pingResult.status === 'error') {
+            // 超时或错误显示0
+            pingValue.textContent = '0';
+            pingValue.className = 'ping-value'; // 重置类名
+            // 为卡片添加超时样式
+            pingCard.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.08))';
+            pingCard.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            return;
+        }
+       
+        // 成功情况
+        const ping = pingResult.ping;
+        pingValue.textContent = ping.toString(); // 只显示数字
+       
+        // 根据PING值调整卡片颜色
+        if (ping < 100) {
+            pingValue.style.color = '#10b981'; // 绿色
+            pingCard.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))';
+            pingCard.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+        } else if (ping < 300) {
+            pingValue.style.color = '#f59e0b'; // 橙色
+            pingCard.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1))';
+            pingCard.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+        } else {
+            pingValue.style.color = '#ef4444'; // 红色
+            pingCard.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1))';
+            pingCard.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+        }
+       
+        // 移除加载动画
+        pingValue.classList.remove('ping-loading');
+    }
+   
+    // 开始PING测试
+    function startPingTests(links) {
+        // 停止之前的测试
+        stopPingTests();
+       
+        // 清空数组
+        pingTests = [];
+       
+        // 为每个链接创建PING测试
+        links.forEach((link, index) => {
+            const linkElement = document.querySelector(`#link-${index} .ping-card`);
+            if (!linkElement) return;
+           
+            // 设置初始状态为加载中
+            const pingValue = linkElement.querySelector('.ping-value');
+            pingValue.textContent = '···';
+            pingValue.className = 'ping-value ping-loading';
+           
+            // 为卡片添加加载中样式
+            linkElement.style.background = 'linear-gradient(135deg, rgba(156, 163, 175, 0.15), rgba(156, 163, 175, 0.08))';
+            linkElement.style.borderColor = 'rgba(156, 163, 175, 0.4)';
+           
+            // 创建测试
+            const test = {
+                index: index,
+                url: link.url,
+                element: linkElement,
+                intervalId: null
+            };
+           
+            // 立即执行一次测试
+            setTimeout(() => {
+                testPing(link.url).then(result => {
+                    updatePingDisplay(linkElement, result);
+                });
+            }, 1000 + (index * 300)); // 错开测试时间，避免同时发起请求
+           
+            // 每20秒重新测试一次
+            test.intervalId = setInterval(() => {
+                // 设置为加载中状态
+                const pingValue = linkElement.querySelector('.ping-value');
+                pingValue.textContent = '···';
+                pingValue.className = 'ping-value ping-loading';
+                linkElement.style.background = 'linear-gradient(135deg, rgba(156, 163, 175, 0.15), rgba(156, 163, 175, 0.08))';
+                linkElement.style.borderColor = 'rgba(156, 163, 175, 0.4)';
+               
+                setTimeout(() => {
+                    testPing(link.url).then(result => {
+                        updatePingDisplay(linkElement, result);
+                    });
+                }, 100);
+            }, 20000); // 20秒
+       
+            pingTests.push(test);
+        });
+    }
+   
+    // 停止PING测试
+    function stopPingTests() {
+        pingTests.forEach(test => {
+            if (test.intervalId) {
+                clearInterval(test.intervalId);
+            }
+        });
+        pingTests = [];
+    }
+   
+    async function init() {
+        // 防止重复初始化
+        if (isInitialized) return;
+       
+        try {
+            const res = await fetch('admin/config.json?t=' + Date.now());
+            const data = await res.json();
+           
+            // 标记为已初始化
+            isInitialized = true;
+           
+            // 全局样式
+            const root = document.documentElement;
+            root.style.setProperty('--border-width', (data.border_width || 2) + 'px');
+            root.style.setProperty('--border-color', data.border_color || 'rgba(212,175,55,0.6)');
+            root.style.setProperty('--border-radius', (data.border_radius || 20) + 'px');
+            root.style.setProperty('--card-opacity', data.card_opacity || 0.5);
+            // 背景渲染
+            const bg = (window.innerWidth <= 768) ? (data.bg_mobile || data.bg_pc) : data.bg_pc;
+            if(bg) {
+                const box = document.getElementById('bg-box');
+                // 清除现有背景
+                box.innerHTML = '';
+                if(bg.match(/\.(mp4|webm)$/i)) {
+                    box.innerHTML = `<video class="bg-media" src="${bg}" autoplay muted loop playsinline></video>`;
+                } else {
+                    box.innerHTML = `<img class="bg-media" src="${bg}">`;
+                }
+            }
+            // 导航栏设置
+            const navLogo = document.querySelector('.nav-logo');
+            if(data.logo && data.logo.trim() !== '') {
+                const logoLink = data.kefu || '#'; // Logo可以链接到客服或首页
+                navLogo.innerHTML = `<a href="${logoLink}" ${logoLink !== '#' ? 'target="_blank"' : ''}><img src="${data.logo}" alt="Logo"></a>`;
+            } else {
+                navLogo.style.display = 'none';
+            }
+           
+            const navKefu = document.querySelector('.nav-kefu');
+            if(data.kefu && data.kefu.trim() !== '' && data.kefu_img && data.kefu_img.trim() !== '') {
+                navKefu.innerHTML = `
+                    <a href="${data.kefu}" target="_blank">
+                        <img src="${data.kefu_img}" alt="在线客服">
+                        <span class="kefu-text">在线客服</span>
+                    </a>
+                `;
+            } else if(data.kefu && data.kefu.trim() !== '') {
+                // 只有客服链接，没有图片
+                navKefu.innerHTML = `<a href="${data.kefu}" target="_blank" class="kefu-text">在线客服</a>`;
+                document.querySelector('.kefu-text').style.display = 'block';
+            } else {
+                navKefu.style.display = 'none';
+            }
+            // 清空标题列表
+            const titleList = document.getElementById('title-list');
+            titleList.innerHTML = '';
+           
+            // 标题渲染 - 确保每个标题只渲染一次
+            if(data.titles && Array.isArray(data.titles)) {
+                data.titles.forEach(t => {
+                    const el = document.createElement('div');
+                    el.innerText = t.text;
+                    el.style.cssText = `
+                        font-size:${t.size}px;
+                        color:${t.color};
+                        font-weight:${t.weight};
+                        margin-bottom:5px;
+                        -webkit-text-stroke:${t.stroke_width}px ${t.stroke_color};
+                        text-stroke:${t.stroke_width}px ${t.stroke_color};
+                    `;
+                    titleList.appendChild(el);
+                });
+            }
+            // 清空副标题列表
+            const subList = document.getElementById('sub-list');
+            subList.innerHTML = '';
+           
+            // 副标题渲染 - 确保每个副标题只渲染一次
+            if(data.subs && Array.isArray(data.subs)) {
+                data.subs.forEach(s => {
+                    const el = document.createElement('div');
+                    el.innerText = s.text;
+                    el.style.cssText = `
+                        font-size:${s.size}px;
+                        color:${s.color};
+                        font-weight:${s.weight || 'normal'};
+                        margin-bottom:10px;
+                        -webkit-text-stroke:${s.stroke_width}px ${s.stroke_color};
+                        text-stroke:${s.stroke_width}px ${s.stroke_color};
+                        line-height: 1.5;
+                    `;
+                    subList.appendChild(el);
+                });
+            }
+            // 清空轮播图容器
+            const swiperWrapper = document.getElementById('swiper-wrapper');
+            swiperWrapper.innerHTML = '';
+           
+            // 轮播图渲染
+            if (data.carousel && data.carousel.length > 0) {
+                data.carousel.forEach(item => {
+                    if (item.img) {
+                        const slide = document.createElement('div');
+                        slide.className = 'swiper-slide';
+                       
+                        if (item.link && item.link.trim() !== '') {
+                            slide.innerHTML = `<a href="${item.link}" target="_blank"><img src="${item.img}"></a>`;
+                        } else {
+                            slide.innerHTML = `<img src="${item.img}">`;
+                        }
+                       
+                        swiperWrapper.appendChild(slide);
+                    }
+                });
+                document.getElementById('banner-box').style.display = 'block';
+               
+                // 销毁旧的Swiper实例（如果存在）
+                if (swiperInstance) {
+                    swiperInstance.destroy(true, true);
+                    swiperInstance = null;
+                }
+               
+                // 创建新的Swiper实例
+                swiperInstance = new Swiper(".mySwiper", {
+                    loop: true,
+                    autoplay: { delay: 3000 },
+                    pagination: { el: ".swiper-pagination" },
+                    effect: 'slide',
+                    speed: 800
+                });
+            }
+            // 线路渲染
+            document.getElementById('route-main-title').innerText = data.routeTitle || '线路入口';
+           
+            // 清空线路列表
+            const linksList = document.getElementById('links-list');
+            linksList.innerHTML = '';
+           
+            // 确保每个线路只渲染一次
+            if(data.links && Array.isArray(data.links)) {
+                data.links.forEach((l, index) => {
+                    const a = document.createElement('a');
+                    a.href = l.url;
+                    a.target = "_blank";
+                    a.className = "route-card";
+                    a.id = `link-${index}`;
+                    a.innerHTML = `
+                        <div class="route-info">
+                            <div class="route-name">${l.name}</div>
+                        </div>
+                        <div class="ping-container">
+                            <div class="ping-card">
+                                <span class="ping-value ping-loading">···</span>
+                                <span class="ping-unit">ms</span>
+                            </div>
+                            <div class="enter-btn">${data.btnText || '进入'}</div>
+                        </div>
+                    `;
+                    linksList.appendChild(a);
+                });
+               
+                // 开始PING测试
+                setTimeout(() => {
+                    startPingTests(data.links);
+                }, 500); // 延迟500毫秒开始测试
+            }
+            // 版权渲染
+            const box = document.getElementById('copyright-box');
+            const content = document.getElementById('copyright-content');
+            if(data.copyright_text && data.copyright_text.trim() !== '') {
+                box.style.display = 'block';
+                content.innerText = data.copyright_text;
+                content.style.color = data.copyright_color || '#666666';
+                content.style.fontSize = (data.copyright_size || 12) + 'px';
+                content.style.lineHeight = '1.5';
+            } else {
+                box.style.display = 'none';
+            }
+           
+            // 显示顺序调整
+            const headerCard = document.getElementById('header-card');
+            const bannerBox = document.getElementById('banner-box');
+            const container = document.querySelector('.container');
+           
+            if (data.display_order === 'carousel_first') {
+                // 轮播在上，标题在下
+                container.insertBefore(bannerBox, headerCard);
+            } else {
+                // 默认：标题在上，轮播在下
+                container.insertBefore(headerCard, bannerBox);
+            }
+           
+            // 系统信息设置
+            const systemInfoBar = document.getElementById('system-info-bar');
+            const systemInfoContent = document.getElementById('system-info-content');
+           
+            if (data.system_info && data.system_info.trim() !== '') {
+                systemInfoBar.style.display = 'block';
+                systemInfoContent.innerHTML = data.system_info;
+                systemInfoContent.style.color = data.system_info_color || '#666666';
+                systemInfoContent.style.fontSize = (data.system_info_size || 12) + 'px';
+            } else {
+                systemInfoBar.style.display = 'none';
+            }
+        } catch (e) {
+            console.error("Config Error:", e);
+           
+            // 如果配置文件加载失败，显示默认内容
+            const titleList = document.getElementById('title-list');
+            const subList = document.getElementById('sub-list');
+            const linksList = document.getElementById('links-list');
+           
+            titleList.innerHTML = '<div style="font-size:32px;color:#d4af37;font-weight:bold;">欢迎使用</div>';
+            subList.innerHTML = '<div style="font-size:14px;color:#ffffff;">请在后台配置内容</div>';
+            document.getElementById('route-main-title').innerText = '线路入口';
+           
+            // 清除线路列表
+            linksList.innerHTML = '';
+        }
+    }
+   
+    // 页面加载完成后初始化
+    window.addEventListener('DOMContentLoaded', function() {
+        // 使用setTimeout确保DOM完全加载
+        setTimeout(init, 100);
+    });
+   
+    // 页面卸载前停止PING测试
+    window.addEventListener('beforeunload', function() {
+        stopPingTests();
+    });
+   
+    // 页面尺寸变化时重新计算背景（但不要重新初始化所有内容）
+    window.addEventListener('resize', function() {
+        // 重置初始化标志，允许重新获取背景
+        isInitialized = false;
+       
+        // 使用防抖避免频繁调用
+        clearTimeout(window.resizeTimer);
+        window.resizeTimer = setTimeout(function() {
+            // 重新获取背景
+            const bgBox = document.getElementById('bg-box');
+            if(bgBox.innerHTML) {
+                // 不重新初始化整个页面，只更新背景
+                fetch('admin/config.json?t=' + Date.now())
+                    .then(res => res.json())
+                    .then(data => {
+                        const bg = (window.innerWidth <= 768) ? (data.bg_mobile || data.bg_pc) : data.bg_pc;
+                        if(bg) {
+                            bgBox.innerHTML = '';
+                            if(bg.match(/\.(mp4|webm)$/i)) {
+                                bgBox.innerHTML = `<video class="bg-media" src="${bg}" autoplay muted loop playsinline></video>`;
+                            } else {
+                                bgBox.innerHTML = `<img class="bg-media" src="${bg}">`;
+                            }
+                        }
+                    })
+                    .catch(e => console.error("Resize background error:", e));
+            }
+        }, 200);
+    });
+</script>
+</body>
+</html>
