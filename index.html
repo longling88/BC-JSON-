@@ -19,9 +19,15 @@
             --ping-loading: #9ca3af;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
+        html {
+            height: 100%; /* 确保html全屏 */
+            overflow-y: scroll; /* 强制滚动行为 */
+            -webkit-overflow-scrolling: touch; /* iOS平滑滚动 */
+        }
         body {
+            position: relative; /* 确保body是relative，便于absolute定位 */
             width:100%;
-            height:100%;
+            min-height:100vh; /* 确保至少全屏高度 */
             background:#000;
             font-family:sans-serif;
             color: #fff;
@@ -90,15 +96,28 @@
         }
        
         #bg-box {
-            position: fixed;
-            inset:0;
+            position: fixed; /* 固定位置，确保不随滚动移动 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index:0;
             pointer-events:none;
+            overflow: hidden; /* 防止溢出 */
+            backface-visibility: hidden; /* GPU hack */
+            -webkit-transform: translate3d(0,0,0); /* 强制硬件加速 */
+            transform: translate3d(0,0,0);
         }
         .bg-media {
+            position: absolute;
+            top: 0;
+            left: 0;
             width:100%;
             height:100%;
             object-fit:cover;
+            backface-visibility: hidden; /* GPU hack for video */
+            -webkit-transform: translateZ(0); /* 强制GPU渲染 */
+            transform: translateZ(0);
         }
         .container {
             position: relative;
@@ -290,6 +309,18 @@
                 font-size: 14px;
             }
         }
+
+        /* Safari-specific hack */
+        @supports (-webkit-overflow-scrolling: touch) {  /* 针对iOS Safari */
+            #bg-box {
+                -webkit-overflow-scrolling: touch;  /* 启用 momentum scrolling */
+            }
+            video.bg-media {
+                will-change: transform;  /* 强制GPU渲染，减少重绘 */
+                -webkit-transform: translate3d(0,0,0); /* 额外硬件加速 */
+                transform: translate3d(0,0,0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -335,7 +366,64 @@
     let isInitialized = false;
     let swiperInstance = null;
     let pingTests = []; // 存储PING测试的数组
-   
+    let currentBgUrl = ''; // 存储当前背景URL
+    
+    // 改进的视频播放管理函数
+    function manageVideoPlayback(video) {
+        if (!video) return;
+        
+        // 确保视频不会因为iOS Safari的优化而暂停
+        video.play().catch(e => {
+            console.log("Video autoplay failed, trying again:", e);
+            // 如果自动播放失败，等待用户交互后尝试
+            const playOnInteraction = () => {
+                video.play().catch(e2 => console.log("Retry also failed:", e2));
+                document.removeEventListener('touchstart', playOnInteraction);
+                document.removeEventListener('click', playOnInteraction);
+            };
+            document.addEventListener('touchstart', playOnInteraction);
+            document.addEventListener('click', playOnInteraction);
+        });
+        
+        // 监听暂停事件，自动恢复播放
+        video.addEventListener('pause', function() {
+            console.log("Video paused, resuming...");
+            setTimeout(() => {
+                this.play().catch(e => console.log("Resume failed:", e));
+            }, 100);
+        });
+        
+        // 监听播放结束，重新开始
+        video.addEventListener('ended', function() {
+            console.log("Video ended, restarting...");
+            this.currentTime = 0;
+            this.play().catch(e => console.log("Restart failed:", e));
+        });
+        
+        // iOS Safari特殊处理
+        if (navigator.userAgent.match(/(iPad|iPhone|iPod)/i)) {
+            // 禁用内联播放控制
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            
+            // 防止页面滚动时视频暂停
+            let isPlaying = false;
+            video.addEventListener('playing', () => {
+                isPlaying = true;
+            });
+            video.addEventListener('pause', () => {
+                isPlaying = false;
+            });
+            
+            // 在页面可见性变化时恢复播放
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && video.paused) {
+                    video.play().catch(e => console.log("Visibility change resume failed:", e));
+                }
+            });
+        }
+    }
+    
     // 改进的PING测试函数 - 使用fetch HEAD请求测试连接时间
     async function testPing(url) {
         const startTime = Date.now();
@@ -473,6 +561,47 @@
         });
         pingTests = [];
     }
+    
+    // 设置背景函数 - 避免重复设置相同背景
+    function setBackground(bgUrl, isVideo) {
+        if (currentBgUrl === bgUrl) {
+            return false; // 背景没有变化
+        }
+        
+        currentBgUrl = bgUrl;
+        const box = document.getElementById('bg-box');
+        
+        // 清除现有背景
+        box.innerHTML = '';
+        
+        if (isVideo) {
+            // 创建视频元素
+            const video = document.createElement('video');
+            video.className = 'bg-media';
+            video.src = bgUrl;
+            video.autoplay = true;
+            video.muted = true;
+            video.loop = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.preload = 'auto';
+            
+            // 添加视频元素
+            box.appendChild(video);
+            
+            // 管理视频播放
+            manageVideoPlayback(video);
+            
+            // 预加载视频
+            video.load();
+        } else {
+            // 图片背景
+            box.innerHTML = `<img class="bg-media" src="${bgUrl}">`;
+        }
+        
+        return true;
+    }
    
     async function init() {
         // 防止重复初始化
@@ -494,14 +623,8 @@
             // 背景渲染
             const bg = (window.innerWidth <= 768) ? (data.bg_mobile || data.bg_pc) : data.bg_pc;
             if(bg) {
-                const box = document.getElementById('bg-box');
-                // 清除现有背景
-                box.innerHTML = '';
-                if(bg.match(/\.(mp4|webm)$/i)) {
-                    box.innerHTML = `<video class="bg-media" src="${bg}" autoplay muted loop playsinline></video>`;
-                } else {
-                    box.innerHTML = `<img class="bg-media" src="${bg}">`;
-                }
+                const isVideo = bg.match(/\.(mp4|webm)$/i);
+                setBackground(bg, isVideo);
             }
             // 导航栏设置
             const navLogo = document.querySelector('.nav-logo');
@@ -715,26 +838,46 @@
         clearTimeout(window.resizeTimer);
         window.resizeTimer = setTimeout(function() {
             // 重新获取背景
-            const bgBox = document.getElementById('bg-box');
-            if(bgBox.innerHTML) {
-                // 不重新初始化整个页面，只更新背景
-                fetch('admin/config.json?t=' + Date.now())
-                    .then(res => res.json())
-                    .then(data => {
-                        const bg = (window.innerWidth <= 768) ? (data.bg_mobile || data.bg_pc) : data.bg_pc;
-                        if(bg) {
-                            bgBox.innerHTML = '';
-                            if(bg.match(/\.(mp4|webm)$/i)) {
-                                bgBox.innerHTML = `<video class="bg-media" src="${bg}" autoplay muted loop playsinline></video>`;
-                            } else {
-                                bgBox.innerHTML = `<img class="bg-media" src="${bg}">`;
-                            }
-                        }
-                    })
-                    .catch(e => console.error("Resize background error:", e));
-            }
+            fetch('admin/config.json?t=' + Date.now())
+                .then(res => res.json())
+                .then(data => {
+                    const newBg = (window.innerWidth <= 768) ? (data.bg_mobile || data.bg_pc) : data.bg_pc;
+                    if (newBg) {
+                        const isVideo = newBg.match(/\.(mp4|webm)$/i);
+                        setBackground(newBg, isVideo);
+                    }
+                })
+                .catch(e => console.error("Resize background error:", e));
         }, 200);
     });
+    
+    // 防止iOS Safari页面滚动时暂停视频
+    if (navigator.userAgent.match(/(iPad|iPhone|iPod)/i)) {
+        // 监听滚动事件，确保视频继续播放
+        let lastScrollTime = 0;
+        window.addEventListener('scroll', function() {
+            const now = Date.now();
+            if (now - lastScrollTime > 100) { // 100ms防抖
+                lastScrollTime = now;
+                const video = document.querySelector('video.bg-media');
+                if (video && video.paused) {
+                    video.play().catch(e => console.log("Scroll resume failed:", e));
+                }
+            }
+        });
+        
+        // 页面可见性变化时恢复视频
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                const video = document.querySelector('video.bg-media');
+                if (video && video.paused) {
+                    setTimeout(() => {
+                        video.play().catch(e => console.log("Visibility resume failed:", e));
+                    }, 300);
+                }
+            }
+        });
+    }
 </script>
 </body>
 </html>
