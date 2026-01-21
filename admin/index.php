@@ -41,6 +41,10 @@ $defaultConfig = [
     "logo" => "",
     "btnText" => "进入",
     "routeTitle" => "极速线路选择",
+    "route_title_size" => "18",
+    "route_title_color" => "#d4af37",
+    "route_title_stroke_color" => "#000000",
+    "route_title_stroke_width" => "0",
     "copyright_text" => "",
     "copyright_size" => "12",
     "copyright_color" => "#666666",
@@ -192,7 +196,14 @@ if ($isLoggedIn) {
         if (isset($_POST['link_names'])) {
             foreach ($_POST['link_names'] as $i => $name) {
                 if (!empty(trim($_POST['link_urls'][$i]))) {
-                    $links[] = ["name" => $name, "url" => trim($_POST['link_urls'][$i])];
+                    $links[] = [
+                        "name" => $name, 
+                        "url" => trim($_POST['link_urls'][$i]),
+                        "size" => $_POST['link_sizes'][$i] ?? "16",
+                        "color" => $_POST['link_colors'][$i] ?? "#ffffff",
+                        "stroke_color" => $_POST['link_stroke_colors'][$i] ?? "#000000",
+                        "stroke_width" => $_POST['link_stroke_widths'][$i] ?? "0"
+                    ];
                 }
             }
         }
@@ -204,6 +215,10 @@ if ($isLoggedIn) {
         $config['border_radius'] = $_POST['border_radius'];
         $config['card_opacity'] = $_POST['card_opacity'];
         $config['routeTitle'] = $_POST['routeTitle'];
+        $config['route_title_size'] = $_POST['route_title_size'] ?? "18";
+        $config['route_title_color'] = $_POST['route_title_color'] ?? "#d4af37";
+        $config['route_title_stroke_color'] = $_POST['route_title_stroke_color'] ?? "#000000";
+        $config['route_title_stroke_width'] = $_POST['route_title_stroke_width'] ?? "0";
         $config['btnText'] = $_POST['btnText'];
         $config['kefu'] = $_POST['kefu'];
         $config['copyright_text'] = $_POST['copyright_text'];
@@ -505,15 +520,43 @@ function renderRes($path) {
                             <h2 class="font-bold text-lg flex items-center"><i class="fa-solid fa-link mr-2 text-emerald-400"></i>线路入口</h2>
                             <button type="button" onclick="addLink()" class="text-xs bg-emerald-500/20 text-emerald-500 px-3 py-1 rounded-lg hover:bg-emerald-500/30 transition">+ 添加线路</button>
                         </div>
-                        <p class="text-xs text-gray-400 mb-4">设置导航链接，支持 http:// 和 https:// 协议</p>
-                        <div id="links-container" class="space-y-3">
+                        <p class="text-xs text-gray-400 mb-4">设置导航链接，支持 http:// 和 https:// 协议。每个线路可单独设置字体样式。</p>
+                        <div id="links-container" class="space-y-4">
                             <?php foreach($config['links'] as $link): ?>
-                            <div class="flex gap-3 bg-black/20 p-3 rounded-2xl items-center border border-white/5 hover:border-white/10 transition-colors">
-                                <input type="text" name="link_names[]" value="<?= htmlspecialchars($link['name']) ?>" class="w-1/3 p-2 rounded-lg text-sm" placeholder="线路名称" required>
-                                <input type="text" name="link_urls[]" value="<?= htmlspecialchars($link['url']) ?>" class="flex-1 p-2 rounded-lg text-sm" placeholder="https://example.com" required>
-                                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 px-2 hover:text-red-400" title="删除">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
+                            <div class="p-4 bg-black/20 rounded-2xl border border-white/5 relative hover:border-white/10 transition-colors">
+                                <div class="flex gap-3 mb-3">
+                                    <input type="text" name="link_names[]" value="<?= htmlspecialchars($link['name']) ?>" class="flex-1 p-2 rounded-lg text-sm" placeholder="线路名称" required>
+                                    <input type="number" name="link_sizes[]" value="<?= $link['size'] ?? '16' ?>" class="w-20 p-2 rounded-lg text-sm" placeholder="大小" min="12" max="72">
+                                </div>
+                                <div class="flex items-center gap-3 text-[11px] flex-wrap">
+                                    <div class="tooltip">
+                                        <div class="color-input-wrapper">
+                                            <input type="color" name="link_colors[]" value="<?= $link['color'] ?? '#ffffff' ?>" class="rounded bg-transparent" title="文字颜色">
+                                        </div>
+                                        <span class="tooltip-text">文字颜色</span>
+                                    </div>
+                                    
+                                    <div class="tooltip">
+                                        <div class="color-input-wrapper">
+                                            <input type="color" name="link_stroke_colors[]" value="<?= $link['stroke_color'] ?? '#000000' ?>" class="rounded bg-transparent" title="描边颜色">
+                                        </div>
+                                        <span class="tooltip-text">描边颜色</span>
+                                    </div>
+                                    
+                                    <div class="flex items-center gap-1">
+                                        <span class="whitespace-nowrap text-gray-400">描边宽:</span>
+                                        <input type="number" name="link_stroke_widths[]" value="<?= $link['stroke_width'] ?? '0' ?>" class="w-12 p-1 rounded" min="0" max="10" step="0.5" title="描边宽度（像素）">
+                                    </div>
+                                    
+                                    <div class="ml-auto flex gap-3">
+                                        <i class="fa-solid fa-arrow-up sort-btn hover:text-emerald-500" onclick="moveUp(this)" title="上移"></i>
+                                        <i class="fa-solid fa-arrow-down sort-btn hover:text-emerald-500" onclick="moveDown(this)" title="下移"></i>
+                                        <i class="fa-solid fa-trash-can text-red-500 cursor-pointer hover:text-red-400" onclick="this.closest('.p-4').remove()" title="删除"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <input type="text" name="link_urls[]" value="<?= htmlspecialchars($link['url']) ?>" class="w-full p-2 rounded-lg text-sm" placeholder="https://example.com" required>
+                                </div>
                             </div>
                             <?php endforeach; ?>
                         </div>
@@ -632,6 +675,28 @@ function renderRes($path) {
                             <div>
                                 <label class="text-xs text-gray-500 block mb-1">线路组标题</label>
                                 <input type="text" name="routeTitle" value="<?= htmlspecialchars($config['routeTitle']) ?>" class="w-full p-2 rounded-lg" placeholder="例如：选择线路">
+                            </div>
+                            <!-- 新增：线路组标题样式配置 -->
+                            <div class="pt-2 border-t border-white/5">
+                                <label class="text-xs text-gray-500 block mb-1">线路组标题样式</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <span class="text-[10px] text-gray-500">字号</span>
+                                        <input type="number" name="route_title_size" value="<?= $config['route_title_size'] ?>" class="w-full p-1 rounded text-xs" min="8" max="36">
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] text-gray-500">颜色</span>
+                                        <input type="text" name="route_title_color" value="<?= $config['route_title_color'] ?>" class="w-full p-1 rounded text-xs" placeholder="#d4af37">
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] text-gray-500">描边颜色</span>
+                                        <input type="text" name="route_title_stroke_color" value="<?= $config['route_title_stroke_color'] ?>" class="w-full p-1 rounded text-xs" placeholder="#000000">
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] text-gray-500">描边宽度</span>
+                                        <input type="number" name="route_title_stroke_width" value="<?= $config['route_title_stroke_width'] ?>" class="w-full p-1 rounded text-xs" min="0" max="10" step="0.5">
+                                    </div>
+                                </div>
                             </div>
                             
                             <div>
@@ -881,12 +946,37 @@ function renderRes($path) {
 
             // 添加线路
             window.addLink = function() {
-                const html = `<div class="flex gap-3 bg-black/20 p-3 rounded-2xl items-center border border-white/5 hover:border-white/10 transition-colors">
-                    <input type="text" name="link_names[]" class="w-1/3 p-2 rounded-lg text-sm" placeholder="线路名称" required>
-                    <input type="text" name="link_urls[]" class="flex-1 p-2 rounded-lg text-sm" placeholder="https://example.com" required>
-                    <button type="button" onclick="this.parentElement.remove()" class="text-red-500 px-2 hover:text-red-400" title="删除">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+                const html = `<div class="p-4 bg-black/20 rounded-2xl border border-white/5 relative hover:border-white/10 transition-colors">
+                    <div class="flex gap-3 mb-3">
+                        <input type="text" name="link_names[]" class="flex-1 p-2 rounded-lg text-sm" placeholder="线路名称" required>
+                        <input type="number" name="link_sizes[]" value="16" class="w-20 p-2 rounded-lg text-sm" placeholder="大小" min="12" max="72">
+                    </div>
+                    <div class="flex items-center gap-3 text-[11px] flex-wrap">
+                        <div class="tooltip">
+                            <div class="color-input-wrapper">
+                                <input type="color" name="link_colors[]" value="#ffffff" title="文字颜色">
+                            </div>
+                            <span class="tooltip-text">文字颜色</span>
+                        </div>
+                        <div class="tooltip">
+                            <div class="color-input-wrapper">
+                                <input type="color" name="link_stroke_colors[]" value="#000000" title="描边颜色">
+                            </div>
+                            <span class="tooltip-text">描边颜色</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="whitespace-nowrap text-gray-400">描边宽:</span>
+                            <input type="number" name="link_stroke_widths[]" value="0" class="w-12 p-1 rounded" min="0" max="10" step="0.5">
+                        </div>
+                        <div class="ml-auto flex gap-3">
+                            <i class="fa-solid fa-arrow-up sort-btn hover:text-emerald-500" onclick="moveUp(this)" title="上移"></i>
+                            <i class="fa-solid fa-arrow-down sort-btn hover:text-emerald-500" onclick="moveDown(this)" title="下移"></i>
+                            <i class="fa-solid fa-trash-can text-red-500 cursor-pointer hover:text-red-400" onclick="this.closest('.p-4').remove()" title="删除"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <input type="text" name="link_urls[]" class="w-full p-2 rounded-lg text-sm" placeholder="https://example.com" required>
+                    </div>
                 </div>`;
                 document.getElementById('links-container').insertAdjacentHTML('beforeend', html);
                 showToast('已添加线路', 'success');
