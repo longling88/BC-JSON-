@@ -23,7 +23,7 @@
         * { margin:0; padding:0; box-sizing:border-box; }
         html {
             height: 100%;
-            overflow-y: scroll;
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
         }
         body {
@@ -33,7 +33,7 @@
             background:#000;
             font-family:sans-serif;
             color: #fff;
-            overflow-x:hidden;
+            overflow-x: clip;
             padding-bottom: 50px;
         }
         #top-nav {
@@ -105,9 +105,7 @@
             z-index:0;
             pointer-events:none;
             overflow: hidden;
-            backface-visibility: hidden;
-            -webkit-transform: translate3d(0,0,0);
-            transform: translate3d(0,0,0);
+            will-change: transform;
         }
         .bg-media {
             position: absolute;
@@ -116,9 +114,12 @@
             width:100%;
             height:100%;
             object-fit:cover;
-            backface-visibility: hidden;
-            -webkit-transform: translateZ(0);
-            transform: translateZ(0);
+        }
+        /* GIF背景专用样式 */
+        .bg-media.gif {
+            /* 防止GIF被视频样式影响 */
+            animation: none !important;
+            opacity: 1 !important;
         }
         .container {
             position: relative;
@@ -335,16 +336,6 @@
                 font-size: 14px;
             }
         }
-        @supports (-webkit-overflow-scrolling: touch) {
-            #bg-box {
-                -webkit-overflow-scrolling: touch;
-            }
-            video.bg-media {
-                will-change: transform;
-                -webkit-transform: translate3d(0,0,0);
-                transform: translate3d(0,0,0);
-            }
-        }
     </style>
 </head>
 <body>
@@ -383,50 +374,27 @@
     let swiperInstance = null;
     let pingTests = [];
     let currentBgUrl = '';
+    let bgMediaElement = null; // 全局背景元素引用
+    let videoPlaybackLock = false; // 防止重复播放的锁
 
-    function manageVideoPlayback(video) {
-        if (!video) return;
-       
-        video.play().catch(e => {
-            console.log("Video autoplay failed:", e);
-            const playOnInteraction = () => {
-                video.play().catch(e2 => console.log("Retry failed:", e2));
-                document.removeEventListener('touchstart', playOnInteraction);
-                document.removeEventListener('click', playOnInteraction);
-            };
-            document.addEventListener('touchstart', playOnInteraction);
-            document.addEventListener('click', playOnInteraction);
-        });
-       
-        video.addEventListener('pause', function() {
-            setTimeout(() => this.play().catch(e => console.log("Resume failed:", e)), 100);
-        });
-       
-        video.addEventListener('ended', function() {
-            this.currentTime = 0;
-            this.play().catch(e => console.log("Restart failed:", e));
-        });
-       
-        if (navigator.userAgent.match(/(iPad|iPhone|iPod)/i)) {
-            video.setAttribute('playsinline', '');
-            video.setAttribute('webkit-playsinline', '');
-           
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && video.paused) {
-                    video.play().catch(e => console.log("Visibility resume failed:", e));
-                }
-            });
-        }
-    }
-   
-    function setBackground(bgUrl, isVideo) {
+    /**
+     * 统一设置背景（支持jpg/png/mp4/gif）
+     * @param {string} bgUrl 背景地址
+     */
+    function setBackground(bgUrl) {
         if (currentBgUrl === bgUrl) return false;
-       
         currentBgUrl = bgUrl;
+        
         const box = document.getElementById('bg-box');
         box.innerHTML = '';
-       
+        bgMediaElement = null;
+
+        // 判断文件类型
+        const isVideo = bgUrl.match(/\.(mp4|webm|mov|avi)$/i);
+        const isGif = bgUrl.match(/\.(gif)$/i);
+        
         if (isVideo) {
+            // 视频背景
             const video = document.createElement('video');
             video.className = 'bg-media';
             video.src = bgUrl;
@@ -434,18 +402,88 @@
             video.muted = true;
             video.loop = true;
             video.playsInline = true;
+            video.preload = 'auto';
+            // 添加浏览器兼容属性
             video.setAttribute('playsinline', '');
             video.setAttribute('webkit-playsinline', '');
-            video.preload = 'auto';
+            video.setAttribute('x5-playsinline', ''); // 微信X5内核
+            video.setAttribute('x-webkit-airplay', 'allow');
+            
             box.appendChild(video);
-            manageVideoPlayback(video);
-            video.load();
+            bgMediaElement = video;
+            
+            // 优化视频播放逻辑（仅在首次加载/真正暂停时播放）
+            video.addEventListener('loadedmetadata', () => {
+                if (!videoPlaybackLock) {
+                    playVideoSafely(video);
+                }
+            });
+            
+            // 仅在视频真正结束/错误时重启，而非滚动时
+            video.addEventListener('ended', () => {
+                video.currentTime = 0;
+                playVideoSafely(video);
+            });
+            
+            video.addEventListener('error', (e) => {
+                console.error('视频加载失败:', e);
+                // 降级为图片背景（如果有备用图）
+                if (bgUrl.includes('.mp4')) {
+                    const fallbackBg = bgUrl.replace('.mp4', '.jpg');
+                    setBackground(fallbackBg);
+                }
+            });
         } else {
-            box.innerHTML = `<img class="bg-media" src="${bgUrl}">`;
+            // 图片/GIF背景
+            const img = document.createElement('img');
+            img.className = `bg-media ${isGif ? 'gif' : ''}`;
+            img.src = bgUrl;
+            img.alt = 'Background';
+            // GIF优化：防止浏览器暂停动画
+            img.loading = 'eager';
+            img.decoding = 'async';
+            
+            // 图片加载失败降级
+            img.onerror = () => {
+                console.error('背景图片加载失败:', bgUrl);
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiMwMDAiLz48L3N2Zz4=';
+            };
+            
+            box.appendChild(img);
+            bgMediaElement = img;
         }
         return true;
     }
-   
+
+    /**
+     * 安全播放视频（防止重复调用）
+     * @param {HTMLVideoElement} video 视频元素
+     */
+    function playVideoSafely(video) {
+        if (!video || videoPlaybackLock || video.readyState < 2) return;
+        
+        videoPlaybackLock = true;
+        video.play().then(() => {
+            videoPlaybackLock = false;
+        }).catch(e => {
+            console.log("视频自动播放失败，等待用户交互:", e);
+            // 仅在首次失败时绑定一次用户交互事件
+            const playOnInteraction = () => {
+                video.play().catch(e2 => console.log("用户交互播放失败:", e2));
+                document.removeEventListener('touchstart', playOnInteraction);
+                document.removeEventListener('click', playOnInteraction);
+                videoPlaybackLock = false;
+            };
+            document.addEventListener('touchstart', playOnInteraction, { once: true });
+            document.addEventListener('click', playOnInteraction, { once: true });
+            videoPlaybackLock = false;
+        });
+    }
+
+    /**
+     * 检测Ping值
+     * @param {string} url 检测地址
+     */
     async function testPing(url) {
         const startTime = Date.now();
         const timeout = 3000;
@@ -472,6 +510,11 @@
         }
     }
    
+    /**
+     * 更新Ping显示
+     * @param {HTMLElement} pingElement Ping容器
+     * @param {Object} pingResult Ping结果
+     */
     function updatePingDisplay(pingElement, pingResult) {
         const pingValue = pingElement.querySelector('.ping-value');
         const pingCard = pingElement.querySelector('.ping-card');
@@ -504,6 +547,10 @@
         pingValue.classList.remove('ping-loading');
     }
    
+    /**
+     * 启动Ping检测
+     * @param {Array} links 链接列表
+     */
     function startPingTests(links) {
         stopPingTests();
         pingTests = [];
@@ -536,11 +583,17 @@
         });
     }
    
+    /**
+     * 停止Ping检测
+     */
     function stopPingTests() {
         pingTests.forEach(test => clearInterval(test.intervalId));
         pingTests = [];
     }
    
+    /**
+     * 初始化页面
+     */
     async function init() {
         if (isInitialized) return;
        
@@ -550,21 +603,22 @@
            
             isInitialized = true;
            
+            // 设置CSS变量
             const root = document.documentElement;
             root.style.setProperty('--border-width', (data.border_width || 2) + 'px');
             root.style.setProperty('--border-color', data.border_color || 'rgba(212,175,55,0.6)');
             root.style.setProperty('--border-radius', (data.border_radius || 20) + 'px');
             root.style.setProperty('--card-opacity', data.card_opacity || 0.5);
-           
             root.style.setProperty('--links-min-width', (data.links_min_width || 200) + 'px');
             root.style.setProperty('--links-card-height', data.links_card_height || 'auto');
            
+            // 设置背景（自适应设备）
             const bg = (window.innerWidth <= 768) ? (data.bg_mobile || data.bg_pc) : data.bg_pc;
             if (bg) {
-                const isVideo = bg.match(/\.(mp4|webm)$/i);
-                setBackground(bg, isVideo);
+                setBackground(bg);
             }
            
+            // 设置导航Logo
             const navLogo = document.querySelector('.nav-logo');
             if (data.logo?.trim()) {
                 const logoLink = data.kefu || '#';
@@ -573,6 +627,7 @@
                 navLogo.style.display = 'none';
             }
            
+            // 设置客服
             const navKefu = document.querySelector('.nav-kefu');
             if (data.kefu?.trim() && data.kefu_img?.trim()) {
                 navKefu.innerHTML = `<a href="${data.kefu}" target="_blank"><img src="${data.kefu_img}" alt="在线客服"><span class="kefu-text">在线客服</span></a>`;
@@ -583,6 +638,7 @@
                 navKefu.style.display = 'none';
             }
            
+            // 设置标题
             const titleList = document.getElementById('title-list');
             titleList.innerHTML = '';
             (data.titles || []).forEach(t => {
@@ -592,6 +648,7 @@
                 titleList.appendChild(el);
             });
            
+            // 设置副标题
             const subList = document.getElementById('sub-list');
             subList.innerHTML = '';
             (data.subs || []).forEach(s => {
@@ -601,6 +658,7 @@
                 subList.appendChild(el);
             });
            
+            // 设置轮播
             const swiperWrapper = document.getElementById('swiper-wrapper');
             swiperWrapper.innerHTML = '';
             if (data.carousel?.length > 0) {
@@ -614,9 +672,19 @@
                 });
                 document.getElementById('banner-box').style.display = 'block';
                 if (swiperInstance) swiperInstance.destroy(true, true);
-                swiperInstance = new Swiper(".mySwiper", { loop: true, autoplay: { delay: 3000 }, pagination: { el: ".swiper-pagination" }, effect: 'slide', speed: 800 });
+                swiperInstance = new Swiper(".mySwiper", { 
+                    loop: true, 
+                    autoplay: { delay: 3000 }, 
+                    pagination: { el: ".swiper-pagination" }, 
+                    effect: 'slide', 
+                    speed: 800,
+                    // 轮播兼容设置
+                    observer: true,
+                    observeParents: true
+                });
             }
            
+            // 设置线路标题
             const routeTitleEl = document.getElementById('route-main-title');
             routeTitleEl.innerText = data.routeTitle || '线路入口';
             routeTitleEl.style.fontSize = (data.route_title_size || 18) + 'px';
@@ -625,10 +693,12 @@
             routeTitleEl.style.textStroke = `${data.route_title_stroke_width || 0}px ${data.route_title_stroke_color || '#000000'}`;
             routeTitleEl.style.fontWeight = 'bold';
            
+            // 设置链接布局
             const routeGroup = document.getElementById('route-group');
             const layout = data.links_layout || 'vertical';
             routeGroup.classList.toggle('horizontal', layout === 'horizontal');
            
+            // 设置链接列表
             const linksList = document.getElementById('links-list');
             linksList.innerHTML = '';
            
@@ -671,6 +741,7 @@
                 setTimeout(() => startPingTests(data.links), 500);
             }
            
+            // 设置版权信息
             const copyrightBox = document.getElementById('copyright-box');
             const copyrightContent = document.getElementById('copyright-content');
             if (data.copyright_text?.trim()) {
@@ -683,6 +754,7 @@
                 copyrightBox.style.display = 'none';
             }
            
+            // 调整显示顺序
             const headerCard = document.getElementById('header-card');
             const bannerBox = document.getElementById('banner-box');
             const container = document.querySelector('.container');
@@ -693,6 +765,7 @@
                 container.insertBefore(headerCard, bannerBox);
             }
            
+            // 设置系统信息栏
             const systemInfoBar = document.getElementById('system-info-bar');
             const systemInfoContent = document.getElementById('system-info-content');
             if (data.system_info?.trim()) {
@@ -704,59 +777,42 @@
                 systemInfoBar.style.display = 'none';
             }
         } catch (e) {
-            console.error("Config Error:", e);
+            console.error("配置加载错误:", e);
             document.getElementById('title-list').innerHTML = '<div style="font-size:32px;color:#d4af37;font-weight:bold;">欢迎使用</div>';
             document.getElementById('sub-list').innerHTML = '<div style="font-size:14px;color:#ffffff;">请在后台配置内容</div>';
             document.getElementById('route-main-title').innerText = '线路入口';
         }
     }
 
+    // 页面加载完成初始化
     window.addEventListener('DOMContentLoaded', () => setTimeout(init, 100));
+    // 页面卸载停止Ping检测
     window.addEventListener('beforeunload', stopPingTests);
 
+    // 窗口大小调整时更新背景（优化版）
     window.addEventListener('resize', () => {
-        isInitialized = false;
         clearTimeout(window.resizeTimer);
         window.resizeTimer = setTimeout(() => {
+            if (!isInitialized) return;
+            
             fetch('admin/config.json?t=' + Date.now())
                 .then(res => res.json())
                 .then(data => {
                     const newBg = (window.innerWidth <= 768) ? (data.bg_mobile || data.bg_pc) : data.bg_pc;
-                    const currentSrc = document.querySelector('.bg-media')?.src;
-                    if (newBg && newBg !== currentSrc) {
-                        const bgBox = document.getElementById('bg-box');
-                        bgBox.innerHTML = '';
-                        if (newBg.match(/\.(mp4|webm)$/i)) {
-                            bgBox.innerHTML = `<video class="bg-media" src="${newBg}" autoplay muted loop playsinline preload="auto"></video>`;
-                        } else {
-                            bgBox.innerHTML = `<img class="bg-media" src="${newBg}">`;
-                        }
+                    if (newBg && newBg !== currentBgUrl) {
+                        setBackground(newBg);
                     }
                 })
-                .catch(e => console.error("Resize background error:", e));
-        }, 200);
+                .catch(e => console.error("调整背景失败:", e));
+        }, 300); // 延长防抖时间，减少触发
     });
 
-    if (navigator.userAgent.match(/(iPad|iPhone|iPod)/i)) {
-        let lastScrollTime = 0;
-        window.addEventListener('scroll', () => {
-            const now = Date.now();
-            if (now - lastScrollTime > 100) {
-                lastScrollTime = now;
-                const video = document.querySelector('video.bg-media');
-                if (video && video.paused) video.play().catch(e => console.log("Scroll resume failed:", e));
-            }
-        });
-      
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                const video = document.querySelector('video.bg-media');
-                if (video && video.paused) {
-                    setTimeout(() => video.play().catch(e => console.log("Visibility resume failed:", e)), 300);
-                }
-            }
-        });
-    }
+    // 仅在页面可见性变化时恢复视频播放（非滚动时）
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && bgMediaElement && bgMediaElement.tagName === 'VIDEO' && bgMediaElement.paused) {
+            setTimeout(() => playVideoSafely(bgMediaElement), 300);
+        }
+    });
 </script>
 </body>
 </html>
